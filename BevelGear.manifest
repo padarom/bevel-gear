@@ -4,7 +4,7 @@
 	"id":	"a7b0e27b-eda7-4046-b573-3b5f5939e954",
 	"author":	"Christopher Mühl",
 	"description":	{
-		"":	"Creates a bevel gear"
+		"":	"Creates a bevel gear component."
 	},
 	"version":	"1.0",
 	"runOnStartup":	false,
