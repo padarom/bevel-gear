@@ -532,6 +532,75 @@ def involutePoint(baseCircleRadius, distFromCenterToInvolutePoint):
 # Builds a spur gear.
 def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressureAngle, backlash, holeDiam):
     try:
+        pitchAngle = 45
+        numberOfTeeth = 32
+        module = 3
+        faceWidth = 5
+        pressureAngle = 20
+
+        occurrences = design.rootComponent.occurrences
+        matrix = adsk.core.Matrix3D.create()
+        newOccurrence = occurrences.addNewComponent(matrix)
+        newComponent = adsk.fusion.Component.cast(newOccurrence.component)
+
+        sketches = newComponent.sketches
+        xzPlane = newComponent.xZConstructionPlane
+        sketch = sketches.add(xzPlane)
+
+        lines = sketch.sketchCurves.sketchLines
+        constraints = sketch.geometricConstraints
+        dimensions = sketch.sketchDimensions
+        
+        # Add a vertical helper line
+        vertical = lines.addByTwoPoints(adsk.core.Point3D.create(0, 90, 0), adsk.core.Point3D.create(0, -90, 0))
+        constraints.addVertical(vertical)
+        # vertical.isConstruction = True
+        # constraints.addCoincident(sketch.origin, vertical)
+        
+        # Add the diagonal cone line
+        coneLine = lines.addByTwoPoints(vertical.endSketchPoint, adsk.core.Point3D.create(100, 0, 0))
+        dim = dimensions.addAngularDimension(vertical, coneLine, adsk.core.Point3D.create(50, 0, 0))
+        dim.parameter._set_expression(str(pitchAngle) + " deg")
+        
+        # Create an extra sketch that contains the cone tip (needs to intersect between different bevel gears)
+        conePointSketch = sketches.add(xzPlane)
+        conePoint = conePointSketch.sketchPoints.add(vertical.endSketchPoint)
+        conePoint.isFixed = True
+
+        newComponent.name = 'Bevel Gear (' + str(pitchAngle) + '°, ' + str(numberOfTeeth) + ' teeth)'
+        return newComponent
+
+        
+        # Create an extra sketch that contains a circle of the diametral pitch.
+        diametralPitchSketch = sketches.add(xyPlane)
+        diametralPitchCircle = diametralPitchSketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(0,0,0), pitchDia/2.0)
+        diametralPitchCircle.isConstruction = True
+        diametralPitchCircle.isFixed = True
+        
+        # Group everything used to create the gear in the timeline.
+        timelineGroups = design.timeline.timelineGroups
+        newOccIndex = newOcc.timelineObject.index
+        pitchSketchIndex = diametralPitchSketch.timelineObject.index
+        # ui.messageBox("Indices: " + str(newOccIndex) + ", " + str(pitchSketchIndex))
+        timelineGroup = timelineGroups.add(newOccIndex, pitchSketchIndex)
+        timelineGroup.name = 'Spur Gear'
+        
+        # Add an attribute to the component with all of the input values.  This might 
+        # be used in the future to be able to edit the gear.     
+        gearValues = {}
+        gearValues['diametralPitch'] = str(diametralPitch * 2.54)
+        gearValues['numTeeth'] = str(numTeeth)
+        gearValues['thickness'] = str(thickness)
+        gearValues['rootFilletRad'] = str(rootFilletRad)
+        gearValues['pressureAngle'] = str(pressureAngle)
+        gearValues['holeDiam'] = str(holeDiam)
+        gearValues['backlash'] = str(backlash)
+        attrib = newComp.attributes.add('BevelGear', 'Values',str(gearValues))
+        
+        newComp.name = 'Spur Gear (' + str(numTeeth) + ' teeth)'
+        return newComp
+
+
         # The diametral pitch is specified in inches but everthing
         # here expects all distances to be in centimeters, so convert
         # for the gear creation.
