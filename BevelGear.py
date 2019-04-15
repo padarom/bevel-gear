@@ -552,15 +552,27 @@ def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressur
         dimensions = sketch.sketchDimensions
         
         # Add a vertical helper line
-        vertical = lines.addByTwoPoints(adsk.core.Point3D.create(0, 90, 0), adsk.core.Point3D.create(0, -90, 0))
+        vertical = lines.addByTwoPoints(adsk.core.Point3D.create(0, 5, 0), adsk.core.Point3D.create(0, -5, 0))
         constraints.addVertical(vertical)
-        # vertical.isConstruction = True
+        vertical.isConstruction = True
         # constraints.addCoincident(sketch.origin, vertical)
         
-        # Add the diagonal cone line
-        coneLine = lines.addByTwoPoints(vertical.endSketchPoint, adsk.core.Point3D.create(100, 0, 0))
-        dim = dimensions.addAngularDimension(vertical, coneLine, adsk.core.Point3D.create(50, 0, 0))
-        dim.parameter._set_expression(str(pitchAngle) + " deg")
+        coneLine = lines.addByTwoPoints(vertical.endSketchPoint, adsk.core.Point3D.create(10, 0, 0))
+        coneLine.isConstruction = True
+        backCone = lines.addByTwoPoints(coneLine.endSketchPoint, adsk.core.Point3D.create(0, 0, 0))
+        
+        dimensions.addAngularDimension(vertical, coneLine, adsk.core.Point3D.create(5, 0, 0)).parameter._set_expression(str(pitchAngle) + " deg")
+        constraints.addPerpendicular(coneLine, backCone)
+        
+        addendum = lines.addByTwoPoints(backCone.startSketchPoint, adsk.core.Point3D.create(10, 10, 0))
+        constraints.addParallel(addendum, backCone)
+        
+        dedendumPoint = sketch.sketchPoints.add(adsk.core.Point3D.create(0, 0, 0))
+        constraints.addCoincident(dedendumPoint, backCone)
+        # dimensions.addDistanceDimension(addendum.endSketchPoint, backCone.endSketchPoint, adsk.fusion.DimensionOrientations.AlignedDimensionOrientation).parameter._set_expression()
+        
+        faceCone = lines.addByTwoPoints(addendum.endSketchPoint, vertical.endSketchPoint)
+        rootCone = lines.addByTwoPoints(dedendumPoint, vertical.endSketchPoint)
         
         # Create an extra sketch that contains the cone tip (needs to intersect between different bevel gears)
         conePointSketch = sketches.add(xzPlane)
