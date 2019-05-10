@@ -532,18 +532,52 @@ def involutePoint(baseCircleRadius, distFromCenterToInvolutePoint):
 # Builds a spur gear.
 def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressureAngle, backlash, holeDiam):
     try:
-        pitchAngle = 45
-        numberOfTeeth = 32
-        module = 3
-        faceWidth = 5
-        pressureAngle = 20
-
+        # Grab needed references once
         occurrences = design.rootComponent.occurrences
         matrix = adsk.core.Matrix3D.create()
+        point = lambda x, y : adsk.core.Point3D.create(x, y, 0)
+        
         newOccurrence = occurrences.addNewComponent(matrix)
         newComponent = adsk.fusion.Component.cast(newOccurrence.component)
-
         sketches = newComponent.sketches
+                
+        gearValues = {}
+        gearValues['numberOfTeethPinion'] = str(20)
+        gearValues['numberOfTeethGear'] = str(40)
+        gearValues['module'] = str(20)
+        gearValues['pressureAngle'] = str(20)
+        gearValues['shaftAngle'] = str(90)
+        gearValues['faceWidth'] = str(22)
+        attrib = newComponent.attributes.add('BevelGear', 'Values',str(gearValues))
+        
+        # Start calculating all the dependent parameters within the Gleason system for straight bevel gears
+        # Note that for spiral bevel gears the calculations will look different
+        numberOfTeethPinion = 20
+        numberOfTeethGear = 40
+        module = 3
+        pressureAngle = 20
+        shaftAngle = 90
+        faceWidth = 22
+        
+        referenceDiameterPinion = numberOfTeethPinion * module
+        referenceDiameterGear = numberOfTeethGear * module
+        
+        referenceConeAnglePinion = math.atan(math.sin(math.radians(shaftAngle)) / (numberOfTeethGear/numberOfTeethPinion + math.cos(math.radians(shaftAngle))))
+        referenceConeAngleGear = shaftAngle - math.degrees(referenceConeAnglePinion)
+
+        coneDistance = referenceConeAngleGear / (2 * math.sin(math.radians(referenceConeAngleGear)))
+        
+        if (faceWidth > coneDistance / 3):
+            print("Oh noes.")
+        
+        _temp = (numberOfTeethGear * math.cos(math.radians(referenceConeAnglePinion)) / numberOfTeethPinion * math.cos(math.radians(referenceConeAngleGear)))
+        addendumGear = 0.54*module + 0.46*module / _temp
+        addendumPinion = 2*module - addendumGear
+        
+        dedendumGear = 2.188 * module - addendumGear
+        dedendumPinion = 2.188 * module - addendumPinion
+        
+        # Start with the construction
         xzPlane = newComponent.xZConstructionPlane
         sketch = sketches.add(xzPlane)
 
@@ -552,37 +586,40 @@ def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressur
         dimensions = sketch.sketchDimensions
         
         # Add a vertical helper line
-        vertical = lines.addByTwoPoints(adsk.core.Point3D.create(0, 5, 0), adsk.core.Point3D.create(0, -5, 0))
-        constraints.addVertical(vertical)
+        vertical = lines.addByTwoPoints(point(0, 5), point(0, -5))
         vertical.isConstruction = True
-        # constraints.addCoincident(sketch.origin, vertical)
+        constraints.addVertical(vertical)
+        constraints.addMidPoint(sketch.originPoint, vertical)
         
-        coneLine = lines.addByTwoPoints(vertical.endSketchPoint, adsk.core.Point3D.create(10, 0, 0))
-        coneLine.isConstruction = True
-        backCone = lines.addByTwoPoints(coneLine.endSketchPoint, adsk.core.Point3D.create(0, 0, 0))
+        horizontal = lines.addByTwoPoints(point(5, 0), point(-5, 0))
+        horizontal.isConstruction = True
+        constraints.addHorizontal(horizontal)
+        constraints.addMidPoint(sketch.originPoint, horizontal)
+        dimensions.addDistanceDimension(horizontal.startSketchPoint, horizontal.endSketchPoint, adsk.fusion.DimensionOrientations.HorizontalDimensionOrientation, point(-1, -1)).parameter._set_expression(str(referenceDiameterGear))
         
-        dimensions.addAngularDimension(vertical, coneLine, adsk.core.Point3D.create(5, 0, 0)).parameter._set_expression(str(pitchAngle) + " deg")
-        constraints.addPerpendicular(coneLine, backCone)
+        rootCone = lines.addByTwoPoints(vertical.endSketchPoint, point(6, 0))
+        rootCone.isConstruction = True
+        constraints.addCoincident(rootCone.endSketchPoint, horizontal.endSketchPoint)
+        dimensions.addAngularDimension(vertical, rootCone, point(1, 0)).parameter._set_expression(str(referenceConeAngleGear) + " deg")
         
-        addendum = lines.addByTwoPoints(backCone.startSketchPoint, adsk.core.Point3D.create(10, 10, 0))
-        constraints.addParallel(addendum, backCone)
+        backCone = lines.addByTwoPoints(rootCone.endSketchPoint, point(0, -4))
+        constraints.addPerpendicular(rootCone, backCone)
+        constraints.addCoincident(backCone.endSketchPoint, vertical)
         
-        dedendumPoint = sketch.sketchPoints.add(adsk.core.Point3D.create(0, 0, 0))
-        constraints.addCoincident(dedendumPoint, backCone)
-        # dimensions.addDistanceDimension(addendum.endSketchPoint, backCone.endSketchPoint, adsk.fusion.DimensionOrientations.AlignedDimensionOrientation).parameter._set_expression()
+        backConeAddendum = lines.addByTwoPoints(backCone.startSketchPoint, point(0, 0))
+        constraints.addCollinear(backConeAddendum, backCone)
+        dimensions.addDistanceDimension(backConeAddendum.endSketchPoint, backCone.startSketchPoint, adsk.fusion.DimensionOrientations.AlignedDimensionOrientation, point(1, 1)).parameter._set_expression(str(addendumGear))
         
-        faceCone = lines.addByTwoPoints(addendum.endSketchPoint, vertical.endSketchPoint)
-        rootCone = lines.addByTwoPoints(dedendumPoint, vertical.endSketchPoint)
+        backConeDedendumPoint = sketch.sketchPoints.add(point(0, 0))
+        constraints.addCoincident(backConeDedendumPoint, backCone)
+        dimensions.addDistanceDimension(backConeDedendumPoint, backCone.startSketchPoint, adsk.fusion.DimensionOrientations.AlignedDimensionOrientation, point(1, 1)).parameter._set_expression(str(dedendumGear))
         
-        # Create an extra sketch that contains the cone tip (needs to intersect between different bevel gears)
-        conePointSketch = sketches.add(xzPlane)
-        conePoint = conePointSketch.sketchPoints.add(vertical.endSketchPoint)
-        conePoint.isFixed = True
+        faceCone = lines.addByTwoPoints(rootCone.startSketchPoint, backConeAddendum.endSketchPoint)
+        innerCone = lines.addByTwoPoints(rootCone.startSketchPoint, backConeDedendumPoint)
 
-        newComponent.name = 'Bevel Gear (' + str(pitchAngle) + '°, ' + str(numberOfTeeth) + ' teeth)'
+        newComponent.name = "Gear"
         return newComponent
 
-        
         # Create an extra sketch that contains a circle of the diametral pitch.
         diametralPitchSketch = sketches.add(xyPlane)
         diametralPitchCircle = diametralPitchSketch.sketchCurves.sketchCircles.addByCenterRadius(adsk.core.Point3D.create(0,0,0), pitchDia/2.0)
