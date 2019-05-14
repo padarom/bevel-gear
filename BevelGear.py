@@ -540,7 +540,7 @@ def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressur
         newOccurrence = occurrences.addNewComponent(matrix)
         newComponent = adsk.fusion.Component.cast(newOccurrence.component)
         sketches = newComponent.sketches
-                
+        
         gearValues = {}
         gearValues['numberOfTeethPinion'] = str(20)
         gearValues['numberOfTeethGear'] = str(40)
@@ -597,16 +597,15 @@ def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressur
         constraints.addMidPoint(sketch.originPoint, horizontal)
         dimensions.addDistanceDimension(horizontal.startSketchPoint, horizontal.endSketchPoint, adsk.fusion.DimensionOrientations.HorizontalDimensionOrientation, point(-1, -1)).parameter._set_expression(str(referenceDiameterGear))
         
-        rootCone = lines.addByTwoPoints(vertical.endSketchPoint, point(6, 0))
+        rootCone = lines.addByTwoPoints(vertical.endSketchPoint, horizontal.startSketchPoint)
         rootCone.isConstruction = True
-        constraints.addCoincident(rootCone.endSketchPoint, horizontal.endSketchPoint)
         dimensions.addAngularDimension(vertical, rootCone, point(1, 0)).parameter._set_expression(str(referenceConeAngleGear) + " deg")
         
         backCone = lines.addByTwoPoints(rootCone.endSketchPoint, point(0, -4))
         constraints.addPerpendicular(rootCone, backCone)
         constraints.addCoincident(backCone.endSketchPoint, vertical)
         
-        backConeAddendum = lines.addByTwoPoints(backCone.startSketchPoint, point(0, 0))
+        backConeAddendum = lines.addByTwoPoints(backCone.startSketchPoint, point(500, 0))
         constraints.addCollinear(backConeAddendum, backCone)
         dimensions.addDistanceDimension(backConeAddendum.endSketchPoint, backCone.startSketchPoint, adsk.fusion.DimensionOrientations.AlignedDimensionOrientation, point(1, 1)).parameter._set_expression(str(addendumGear))
         
@@ -616,7 +615,38 @@ def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressur
         
         faceCone = lines.addByTwoPoints(rootCone.startSketchPoint, backConeAddendum.endSketchPoint)
         innerCone = lines.addByTwoPoints(rootCone.startSketchPoint, backConeDedendumPoint)
+        
+        innerFace = lines.addByTwoPoints(point(0, 0), point(1, 0))
+        constraints.addCoincident(innerFace.startSketchPoint, faceCone)
+        constraints.addCoincident(innerFace.endSketchPoint, innerCone)
+        constraints.addPerpendicular(innerFace, rootCone)
+        dimensions.addDistanceDimension(faceCone.endSketchPoint, innerFace.startSketchPoint, adsk.fusion.DimensionOrientations.AlignedDimensionOrientation, point(1, 1)).parameter._set_expression(str(faceWidth))
 
+        innerFaceExtension = lines.addByTwoPoints(innerFace.endSketchPoint, point(0, 0))
+        constraints.addCollinear(innerFaceExtension, innerFace)
+        dimensions.addDistanceDimension(innerFace.endSketchPoint, innerFaceExtension.endSketchPoint, adsk.fusion.DimensionOrientations.AlignedDimensionOrientation, point(1, 1)).parameter._set_expression("5")
+        
+        gearBottom = lines.addByTwoPoints(point(0, 0), point(1, 0))
+        constraints.addHorizontal(gearBottom)
+        constraints.addCoincident(gearBottom.endSketchPoint, backCone)
+        dimensions.addDistanceDimension(backConeDedendumPoint, gearBottom.endSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, point(1, 1)).parameter._set_expression("10")
+        dimensions.addDistanceDimension(vertical.startSketchPoint, gearBottom.startSketchPoint, adsk.fusion.DimensionOrientations.HorizontalDimensionOrientation, point(1, 1)).parameter._set_expression("5")
+        
+        gearTop = lines.addByTwoPoints(point(0, 0), innerFaceExtension.endSketchPoint)
+        constraints.addHorizontal(gearTop)
+        constraints.addVerticalPoints(gearTop.startSketchPoint, gearBottom.startSketchPoint)
+
+        lines.addByTwoPoints(gearTop.startSketchPoint, gearBottom.startSketchPoint)
+        
+        profiles = adsk.core.ObjectCollection.create()
+        profiles.add(sketch.profiles.item(0))
+        profiles.add(sketch.profiles.item(1))
+        
+        revolves = newComponent.features.revolveFeatures
+        revInput = revolves.createInput(profiles, vertical, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+        revInput.setAngleExtent(False, adsk.core.ValueInput.createByReal(math.pi * 2))
+        revolves.add(revInput)
+        
         newComponent.name = "Gear"
         return newComponent
 
