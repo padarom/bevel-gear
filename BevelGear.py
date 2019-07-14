@@ -652,12 +652,19 @@ def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressur
         spurGearEquivalentPlane = newComponent.constructionPlanes.add(planeInput)
         
         sketch = sketches.add(spurGearEquivalentPlane)
-        projectedBackConeCenter = sketch.project(backCone.endSketchPoint)
+        projectedBackConeCenter = sketch.project(backCone.endSketchPoint)[0]
         
         pitchCircle = sketch.sketchCurves.sketchCircles.addByCenterRadius(projectedBackConeCenter, 5)
-        # sketch.sketchDimensions.addDiameterDimension(pitchCircle)
         addendumCircle = sketch.sketchCurves.sketchCircles.addByCenterRadius(projectedBackConeCenter, 6)
         dedendumCircle = sketch.sketchCurves.sketchCircles.addByCenterRadius(projectedBackConeCenter, 4)
+        
+        temp = sketch.sketchCurves.sketchLines.addByTwoPoints(projectedBackConeCenter, point(0, 0))
+        sketch.geometricConstraints.addCoincident(temp.endSketchPoint, addendumCircle)
+        sketch.geometricConstraints.addVertical(temp)
+        temp.isConstruction = True
+        
+        involuteArc = sketch.sketchCurves.sketchArcs.addByThreePoints(point(-10, -10), point(1, 0), point(1, 1))
+        sketch.geometricConstraints.addCoincident(involuteArc.endSketchPoint, dedendumCircle)
         
         newComponent.name = "Gear"
         return newComponent
