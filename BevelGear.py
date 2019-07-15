@@ -504,7 +504,7 @@ class GearCommandValidateInputsHandler(adsk.core.ValidateInputsEventHandler):
             if _ui:
                 _ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
-def drawBevelGear(constructionPlane, gearValues):
+def drawBevelGear(design, component, constructionPlane, gearValues):
     try:
         # Start calculating all the dependent parameters within the Gleason system for straight bevel gears
         # Note that for spiral bevel gears the calculations will look different
@@ -533,11 +533,10 @@ def drawBevelGear(constructionPlane, gearValues):
         dedendumGear = 2.188 * module - addendumGear
         dedendumPinion = 2.188 * module - addendumPinion
         
-        occurrences = design.rootComponent.occurrences
-        matrix = adsk.core.Matrix3D.create()
         point = lambda x, y : adsk.core.Point3D.create(x, y, 0)
         
         # Start with the construction
+        sketches = component.sketches
         sketch = sketches.add(constructionPlane)
 
         lines = sketch.sketchCurves.sketchLines
@@ -601,14 +600,14 @@ def drawBevelGear(constructionPlane, gearValues):
         profiles.add(sketch.profiles.item(0))
         profiles.add(sketch.profiles.item(1))
         
-        revolves = newComponent.features.revolveFeatures
+        revolves = component.features.revolveFeatures
         revInput = revolves.createInput(profiles, vertical, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
         revInput.setAngleExtent(False, adsk.core.ValueInput.createByReal(math.pi * 2))
         revolveBody = revolves.add(revInput)
         
-        planeInput = newComponent.constructionPlanes.createInput()
+        planeInput = component.constructionPlanes.createInput()
         planeInput.setByTangentAtPoint(revolveBody.sideFaces[3], backCone.startSketchPoint)
-        spurGearEquivalentPlane = newComponent.constructionPlanes.add(planeInput)
+        spurGearEquivalentPlane = component.constructionPlanes.add(planeInput)
         
         sketch = sketches.add(spurGearEquivalentPlane)
         projectedBackConeCenter = sketch.project(backCone.endSketchPoint)[0]
@@ -625,6 +624,7 @@ def drawBevelGear(constructionPlane, gearValues):
         involuteArc = sketch.sketchCurves.sketchArcs.addByThreePoints(point(-10, -10), point(1, 0), point(1, 1))
         sketch.geometricConstraints.addCoincident(involuteArc.endSketchPoint, dedendumCircle)
         
+        return sketch        
     except Exception as error:
         _ui.messageBox("drawGear Failed : " + str(error)) 
         return None
@@ -632,15 +632,6 @@ def drawBevelGear(constructionPlane, gearValues):
 # Builds a spur gear.
 def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressureAngle, backlash, holeDiam):
     try:
-        # Grab needed references once
-        occurrences = design.rootComponent.occurrences
-        matrix = adsk.core.Matrix3D.create()
-        point = lambda x, y : adsk.core.Point3D.create(x, y, 0)
-        
-        newOccurrence = occurrences.addNewComponent(matrix)
-        newComponent = adsk.fusion.Component.cast(newOccurrence.component)
-        sketches = newComponent.sketches
-        
         gearValues = {}
         gearValues['numberOfTeethPinion'] = str(20)
         gearValues['numberOfTeethGear'] = str(40)
@@ -648,21 +639,38 @@ def drawGear(design, diametralPitch, numTeeth, thickness, rootFilletRad, pressur
         gearValues['pressureAngle'] = str(20)
         gearValues['shaftAngle'] = str(90)
         gearValues['faceWidth'] = str(22)
-        attrib = newComponent.attributes.add('BevelGear', 'Values',str(gearValues))
-
+        
+        pinionValues = {}
+        
+        occurrences = design.rootComponent.occurrences
+        matrix = adsk.core.Matrix3D.create()
+        
         # Start with the construction
-        drawBevelGear(newComponent.xZConstructionPlane, gearValues)
-        drawBevelGear(newComponent.yZConstructionPlane, gearValues)
-
-        newComponent.name = "Gear"
-        return newComponent
+        gearOccurrence = occurrences.addNewComponent(matrix)
+        gear = adsk.fusion.Component.cast(gearOccurrence.component)
+        gear.attributes.add('BevelGear', 'Values',str(gearValues))
+        
+        pinionOccurrence = occurrences.addNewComponent(matrix)
+        pinion = adsk.fusion.Component.cast(pinionOccurrence.component)
+        
+        finalSketch = drawBevelGear(design, gear, gear.xZConstructionPlane, gearValues)
+        # drawBevelGear(design, pinion, pinion.xZConstructionPlane, pinionValues)
+        
+        gear.name = "Gear"
+        pinion.name = "Pinion"
+        
+        timelineGroups = design.timeline.timelineGroups
+        timelineGroup = timelineGroups.add(gearOccurrence.timelineObject.index, finalSketch.timelineObject.index)
+        timelineGroup.name = 'Bevel Gear'
+        
+        return gear
 
         # Group everything used to create the gear in the timeline.
         timelineGroups = design.timeline.timelineGroups
         newOccIndex = newOcc.timelineObject.index
         pitchSketchIndex = diametralPitchSketch.timelineObject.index
         # ui.messageBox("Indices: " + str(newOccIndex) + ", " + str(pitchSketchIndex))
-        timelineGroup = timelineGroups.add(newOccIndex, pitchSketchIndex)
+        timelineGroup = timelineGroups.add(newOccIndex, finalSketch.timelineObject.index)
         timelineGroup.name = 'Spur Gear'
         
         # Add an attribute to the component with all of the input values.  This might 
