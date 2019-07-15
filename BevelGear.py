@@ -9,6 +9,7 @@
 
 import adsk.core, adsk.fusion, adsk.cam, traceback
 import math
+from .BevelGearAttributes import BevelGearAttributes
 
 # Globals
 _app = adsk.core.Application.cast(None)
@@ -317,6 +318,17 @@ class GearCommandExecuteHandler(adsk.core.CommandEventHandler):
             holeDiam = _holeDiam.value
             backlash = _backlash.value
 
+            
+            # Start calculating all the dependent parameters within the Gleason system for straight bevel gears
+            # Note that for spiral bevel gears the calculations will look different
+            numberOfTeethPinion = int(_numTeeth.value)
+            numberOfTeethGear = int(_numTeeth.value)
+            module = 3
+            shaftAngle = 90
+            faceWidth = 22
+            
+            gearAttributes, pinionAttributes = BevelGearAttributes.createGearPair(numberOfTeethGear, numberOfTeethPinion, module, shaftAngle, faceWidth)
+            
             # Create the gear.
             gearComp = drawGear(des, diaPitch, numTeeth, thickness, rootFilletRad, pressureAngle, backlash, holeDiam)
             
