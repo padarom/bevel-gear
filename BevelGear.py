@@ -41,7 +41,7 @@ def run(context):
         _ui  = _app.userInterface
 
         # Create a command definition and add a button to the CREATE panel.
-        cmdDef = _ui.commandDefinitions.addButtonDefinition('adskBevelGearPythonAddIn', 'Bevel Gear', 'Creates a bevel gear component', 'Resources/BevelGear')        
+        cmdDef = _ui.commandDefinitions.addButtonDefinition('adskBevelGearPythonAddIn', 'Bevel Gear', 'Creates a bevel gear component', 'Resources/icons')        
         createPanel = _ui.allToolbarPanels.itemById('SolidCreatePanel')
         gearButton = createPanel.controls.addCommand(cmdDef)
         

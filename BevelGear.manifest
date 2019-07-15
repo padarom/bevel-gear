@@ -7,7 +7,7 @@
 		"":	"Creates a bevel gear component."
 	},
 	"version":	"1.0",
-	"runOnStartup":	false,
+	"runOnStartup":	true,
 	"supportedOS":	"windows|mac",
 	"editEnabled":	true
 }
