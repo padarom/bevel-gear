@@ -627,14 +627,64 @@ def drawBevelGear(design, component, constructionPlane, gearValues):
         pitchCircle = sketch.sketchCurves.sketchCircles.addByCenterRadius(projectedBackConeCenter, 5)
         addendumCircle = sketch.sketchCurves.sketchCircles.addByCenterRadius(projectedBackConeCenter, 6)
         dedendumCircle = sketch.sketchCurves.sketchCircles.addByCenterRadius(projectedBackConeCenter, 4)
+        pitchCircle.isConstruction = True
+        addendumCircle.isConstruction = True
+        dedendumCircle.isConstruction = True
+        
+        sketch.sketchDimensions.addDiameterDimension(pitchCircle, point(0, 0)).parameter._set_expression("100")
+        sketch.sketchDimensions.addDiameterDimension(addendumCircle, point(0, 0)).parameter._set_expression("100 + 5")
+        sketch.sketchDimensions.addDiameterDimension(dedendumCircle, point(0, 0)).parameter._set_expression("100 - 10")
+        
+        outsideAddendumCircle = sketch.sketchCurves.sketchCircles.addByCenterRadius(projectedBackConeCenter, 6)
+        outsideAddendumCircle.isConstruction = True
+        sketch.sketchDimensions.addDiameterDimension(outsideAddendumCircle, point(0, 0)).parameter._set_expression("100 + 5 + 1")
         
         temp = sketch.sketchCurves.sketchLines.addByTwoPoints(projectedBackConeCenter, point(0, 0))
         sketch.geometricConstraints.addCoincident(temp.endSketchPoint, addendumCircle)
         sketch.geometricConstraints.addVertical(temp)
         temp.isConstruction = True
         
-        involuteArc = sketch.sketchCurves.sketchArcs.addByThreePoints(point(-10, -10), point(1, 0), point(1, 1))
-        sketch.geometricConstraints.addCoincident(involuteArc.endSketchPoint, dedendumCircle)
+        verticalHelper = sketch.sketchCurves.sketchLines.addByTwoPoints(point(0, -10), point(0, 10))
+        verticalHelper.isConstruction = True
+        sketch.geometricConstraints.addVertical(verticalHelper)
+        sketch.geometricConstraints.addCoincident(verticalHelper.startSketchPoint, projectedBackConeCenter)
+        
+        involuteArc = sketch.sketchCurves.sketchArcs.addByThreePoints(point(-100, 100), point(0, 0), point(-1, -10))
+        sketch.geometricConstraints.addCoincident(involuteArc.startSketchPoint, dedendumCircle)
+        
+        involuteExtension = sketch.sketchCurves.sketchLines.addByTwoPoints(involuteArc.startSketchPoint, projectedBackConeCenter)
+        involuteExtension.isConstruction = True
+        sketch.geometricConstraints.addTangent(involuteExtension, involuteArc)
+
+        pitchCircleCollection = adsk.core.ObjectCollection.create()
+        pitchCircleCollection.add(pitchCircle)
+        _, _, points = involuteArc.intersections(pitchCircleCollection)
+        pitchCirclePoint = sketch.sketchPoints.add(points.item(0))
+        sketch.geometricConstraints.addCoincident(pitchCirclePoint, pitchCircle)
+        sketch.geometricConstraints.addCoincident(pitchCirclePoint, involuteArc)
+        
+        sketch.geometricConstraints.addCoincident(involuteArc.endSketchPoint, outsideAddendumCircle)
+        
+        pressureAngleLine = sketch.sketchCurves.sketchLines.addByTwoPoints(pitchCirclePoint, point(10, 10))
+        pressureAngleLine.isConstruction = True
+        sketch.geometricConstraints.addCoincident(pressureAngleLine.endSketchPoint, outsideAddendumCircle)
+        sketch.geometricConstraints.addTangent(pressureAngleLine, involuteArc)
+        
+        sketch.sketchDimensions.addAngularDimension(pressureAngleLine, verticalHelper, point(-1, 1000)).parameter._set_expression("20")
+        
+        toothShapeDefiner = sketch.sketchCurves.sketchLines.addByTwoPoints(projectedBackConeCenter, pitchCirclePoint)
+        toothShapeDefiner.isConstruction = True
+        sketch.sketchDimensions.addAngularDimension(toothShapeDefiner, verticalHelper, point(-1, 1000)).parameter._set_expression("3")
+                
+        mirroredInvoluteArc = sketch.sketchCurves.sketchArcs.addByThreePoints(point(100, 100), point(0, 0), point(1, -10))
+        sketch.geometricConstraints.addSymmetry(involuteArc, mirroredInvoluteArc, verticalHelper)
+        sketch.geometricConstraints.addCoincident(mirroredInvoluteArc.startSketchPoint, outsideAddendumCircle)
+        sketch.geometricConstraints.addCoincident(mirroredInvoluteArc.endSketchPoint, dedendumCircle)
+        
+        outsideClosingLoop = sketch.sketchCurves.sketchArcs.addByThreePoints(involuteArc.endSketchPoint, point(0, 1000), mirroredInvoluteArc.startSketchPoint)
+        sketch.geometricConstraints.addCoincident(outsideClosingLoop.centerSketchPoint, projectedBackConeCenter)
+        insideClosingLoop = sketch.sketchCurves.sketchArcs.addByThreePoints(involuteArc.startSketchPoint, point(0, 1000), mirroredInvoluteArc.endSketchPoint)
+        sketch.geometricConstraints.addCoincident(insideClosingLoop.centerSketchPoint, projectedBackConeCenter)
         
         return sketch        
     except Exception as error:
