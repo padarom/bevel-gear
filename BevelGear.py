@@ -525,10 +525,12 @@ def drawBevelGear(design, component, constructionPlane, gearValues):
         module = 3
         pressureAngle = 20
         shaftAngle = 90
-        faceWidth = 22
+        faceWidth = 20
         
         referenceDiameterPinion = numberOfTeethPinion * module
         referenceDiameterGear = numberOfTeethGear * module
+        
+        backConeRadiusGear = (referenceDiameterGear / 2) / math.cos(math.atan2(numberOfTeethGear, numberOfTeethPinion))
         
         referenceConeAnglePinion = math.atan(math.sin(math.radians(shaftAngle)) / (numberOfTeethGear/numberOfTeethPinion + math.cos(math.radians(shaftAngle))))
         referenceConeAngleGear = shaftAngle - math.degrees(referenceConeAnglePinion)
@@ -618,7 +620,7 @@ def drawBevelGear(design, component, constructionPlane, gearValues):
         revolveBody = revolves.add(revInput)
         
         planeInput = component.constructionPlanes.createInput()
-        planeInput.setByTangentAtPoint(revolveBody.sideFaces[3], backCone.startSketchPoint)
+        planeInput.setByTangentAtPoint(revolveBody.faces[4], backCone.startSketchPoint)
         spurGearEquivalentPlane = component.constructionPlanes.add(planeInput)
         
         sketch = sketches.add(spurGearEquivalentPlane)
@@ -631,13 +633,13 @@ def drawBevelGear(design, component, constructionPlane, gearValues):
         addendumCircle.isConstruction = True
         dedendumCircle.isConstruction = True
         
-        sketch.sketchDimensions.addDiameterDimension(pitchCircle, point(0, 0)).parameter._set_expression("100")
-        sketch.sketchDimensions.addDiameterDimension(addendumCircle, point(0, 0)).parameter._set_expression("100 + 5")
-        sketch.sketchDimensions.addDiameterDimension(dedendumCircle, point(0, 0)).parameter._set_expression("100 - 10")
+        sketch.sketchDimensions.addDiameterDimension(pitchCircle, point(0, 0)).parameter._set_expression(str(backConeRadiusGear) + " * 2")
+        sketch.sketchDimensions.addDiameterDimension(addendumCircle, point(0, 0)).parameter._set_expression(str(backConeRadiusGear) + " * 2 + 2 * " + str(addendumGear))
+        sketch.sketchDimensions.addDiameterDimension(dedendumCircle, point(0, 0)).parameter._set_expression(str(backConeRadiusGear) + " * 2 - 2 * " + str(dedendumGear))
         
         outsideAddendumCircle = sketch.sketchCurves.sketchCircles.addByCenterRadius(projectedBackConeCenter, 6)
         outsideAddendumCircle.isConstruction = True
-        sketch.sketchDimensions.addDiameterDimension(outsideAddendumCircle, point(0, 0)).parameter._set_expression("100 + 5 + 1")
+        sketch.sketchDimensions.addDiameterDimension(outsideAddendumCircle, point(0, 0)).parameter._set_expression(str(backConeRadiusGear) + " * 2 + 1 + 2 * " + str(addendumGear))
         
         temp = sketch.sketchCurves.sketchLines.addByTwoPoints(projectedBackConeCenter, point(0, 0))
         sketch.geometricConstraints.addCoincident(temp.endSketchPoint, addendumCircle)
@@ -674,7 +676,8 @@ def drawBevelGear(design, component, constructionPlane, gearValues):
         
         toothShapeDefiner = sketch.sketchCurves.sketchLines.addByTwoPoints(projectedBackConeCenter, pitchCirclePoint)
         toothShapeDefiner.isConstruction = True
-        sketch.sketchDimensions.addAngularDimension(toothShapeDefiner, verticalHelper, point(-1, 1000)).parameter._set_expression("3")
+        equivalentSpurTeeth = numberOfTeethGear / math.cos(math.atan2(numberOfTeethGear, numberOfTeethPinion))
+        sketch.sketchDimensions.addAngularDimension(toothShapeDefiner, verticalHelper, point(-1, 1000)).parameter._set_expression("90 / " + str(equivalentSpurTeeth))
                 
         mirroredInvoluteArc = sketch.sketchCurves.sketchArcs.addByThreePoints(point(100, 100), point(0, 0), point(1, -10))
         sketch.geometricConstraints.addSymmetry(involuteArc, mirroredInvoluteArc, verticalHelper)
@@ -685,6 +688,15 @@ def drawBevelGear(design, component, constructionPlane, gearValues):
         sketch.geometricConstraints.addCoincident(outsideClosingLoop.centerSketchPoint, projectedBackConeCenter)
         insideClosingLoop = sketch.sketchCurves.sketchArcs.addByThreePoints(involuteArc.startSketchPoint, point(0, 1000), mirroredInvoluteArc.endSketchPoint)
         sketch.geometricConstraints.addCoincident(insideClosingLoop.centerSketchPoint, projectedBackConeCenter)
+        
+        loftFeatures = component.loftFeatures
+        loftInput = loftFeatures.createInput(adsk.fusion.FeatureOperations.CutFeatureOperation)
+        sections = loftInput.loftSections
+        sections.add(sketch.profiles.item(0))
+        sections.add(rootCone.startSketchPoint.worldGeometry)
+        loftInput.isSolid = False
+        
+        loftFeatures.add(loftInput)
         
         return sketch        
     except Exception as error:
