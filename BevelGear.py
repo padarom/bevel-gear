@@ -7,8 +7,9 @@ import adsk.core
 import adsk.fusion
 import traceback
 import math
+from .bevel_gear.cfg import handlers
 from .bevel_gear.attributes import BevelGearAttributes
-from .bevel_gear.command import GearCommandHandler
+from .bevel_gear.handlers.commandCreated import CommandCreatedHandler
 
 BEVEL_GEAR_BUTTON = 'pdrmConstructBevelGear'
 
@@ -25,8 +26,9 @@ def run(context):
 
         # Register our gear command handler to the command created
         # event of the command definition
-        # handler = GearCommandHandler()
-        # cmdDef.commandCreated.add(handler)
+        handler = CommandCreatedHandler()
+        cmdDef.commandCreated.add(handler)
+        handlers.append(handler)
 
         # Notify the user about a new command only if the add-in
         # was started manually (i.e. not at startup)
