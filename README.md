@@ -1,6 +1,8 @@
 # Bevel Gear Generator
 Fusion 360 Bevel Gear Generator add-in.
 
+# THIS IS CURRENTLY A WORK IN PROGRESS. THIS SCRIPT DOES NOT WORK.
+
 ## Installation
 There's two ways to install this add-in:
 - **GitHub**: Download the Zip file of this repository and import it in Fusion 360
