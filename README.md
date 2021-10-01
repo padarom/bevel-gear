@@ -1,5 +1,5 @@
 # Bevel Gear Generator
-Fusion 360 Bevel Gear Generator add-in.
+Fusion 360 Bevel Gear Generator add-in. **This is still a work in progress and not yet a finished add-in.**
 
 # THIS IS CURRENTLY A WORK IN PROGRESS. THIS SCRIPT DOES NOT WORK.
 
